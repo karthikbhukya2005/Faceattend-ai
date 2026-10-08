@@ -639,9 +639,7 @@ The current version includes the core attendance workflow, authentication/RBAC, 
 
 ## License
 
-Add the license you choose before publishing the repository.
-
-For an open-source project, you can add an MIT license if that matches your intended usage.
+MIT license.
 
 ---
 
