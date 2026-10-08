@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: faceattend_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-faceattend_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-faceattend_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-faceattend_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-faceattend_user} -d ${POSTGRES_DB:-faceattend_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: faceattend_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - ENVIRONMENT=production
+      - DEBUG=False
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-faceattend_user}:${POSTGRES_PASSWORD:-faceattend_pass}@postgres:5432/${POSTGRES_DB:-faceattend_db}
+      - JWT_SECRET=${JWT_SECRET:-faceattend_super_secret_jwt_key_development_change_in_prod_12345}
+      - FACE_MATCH_THRESHOLD=${FACE_MATCH_THRESHOLD:-0.65}
+      - ATTENDANCE_COOLDOWN_SECONDS=${ATTENDANCE_COOLDOWN_SECONDS:-60}
+      - WORK_START_TIME=${WORK_START_TIME:-09:30}
+      - CORS_ORIGINS=*
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: faceattend_frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "3000:80"
+
+volumes:
+  postgres_data:
+    driver: local
